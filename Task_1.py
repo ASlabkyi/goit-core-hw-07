@@ -42,6 +42,8 @@ def input_error(func):
             return func(*args, **kwargs)
         except AddressBookError as e:
             return str(e)
+        except AttributeError as e:
+            return "Contact not found"
     return wrapper
 
 class Field:
@@ -109,7 +111,8 @@ class Record:
         self.phones[i] = new_phone
 
     def __str__(self):
-        return f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}"
+        birthday = self.birthday.value if self.birthday else "Birthday not found"
+        return f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}, birthday: {birthday}"
 
 class AddressBook(UserDict):
     def add_record(self, record):
@@ -132,7 +135,7 @@ class AddressBook(UserDict):
         upcoming_birthdays = []
 
         for record in self.data.values():
-            if record.birthday == None:
+            if record.birthday is None:
                 continue
             date_str = record.birthday.value
             birthday_this_year = datetime.strptime(date_str, '%d.%m.%Y').date().replace(year=today.year)
@@ -179,8 +182,6 @@ def change_phone(args, book: AddressBook):
         raise InputError('Input error! Use format: cmd name old_number new_number.')
     name, old_phone, new_phone, *_ = args
     record = book.find(name)
-    if record is None:
-        raise ContactNotFound(f'Contact {name} not found')
     record.edit_phone(old_phone, new_phone)
     return 'Phone updated'
 
@@ -190,8 +191,6 @@ def show_phone(args, book: AddressBook):
         raise InputError('Input error! Use format: cmd name.')
     name, *_ = args
     record = book.find(name)
-    if record is None:
-        raise ContactNotFound(f'Contact {name} not found')
     return '; '.join(p.value for p in record.phones)
 
 @input_error
@@ -209,8 +208,6 @@ def add_birthday(args, book: AddressBook):
         raise InputError('Input error! Use format: cmd name birthday.')
     name, birthday, *_ = args
     record = book.find(name)
-    if record is None:
-        raise ContactNotFound(f'Contact {name} not found')
     record.add_birthday(birthday)
     return 'Birthday added'
 
@@ -220,8 +217,6 @@ def show_birthday(args, book: AddressBook):
         raise InputError('Input error! Use format: cmd name.')
     name, *_ = args
     record = book.find(name)
-    if record is None:
-        raise ContactNotFound(f'Contact {name} not found')
     if not record.birthday:
         raise BirthdayNotFound(f"{name}'s birthday not added")
     return record.birthday.value
@@ -242,6 +237,9 @@ def main():
     print("Welcome to the assistant bot!")
     while True:
         user_input = input("Enter a command: ")
+        if not user_input.strip():
+            print("Please enter a command!")
+            continue
         command, *args = parse_input(user_input)
 
         if command in ["close", "exit"]:
